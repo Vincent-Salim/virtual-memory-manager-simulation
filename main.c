@@ -26,7 +26,19 @@ int main(int argc, char *argv[]) {
     }
     fprintf(stderr,"filename: %s\n", filename);
     fprintf(stderr, "task: %s\n", task);
-    task1(filename);
+    
+    if (strcmp(task, "task1")) {
+        task1(filename);
+    } 
+    // else if (strcmp(task, "task2")) {
+    //     task2(filename);
+    // } 
+    // else if (strcmp(task, "task3")) {
+    //     task3(filename);
+    // } 
+    // else if (strcmp(task, "task4")) {
+    //     task4(filename);
+    // } 
 
     return 0;
 }
@@ -48,5 +60,5 @@ void task1(const char *filename) {
     
         printf("logical-address=%d,page-number=%d,offset=%d\n", logical_address, page_number, offset);    
     }
-
+    fclose(fptr);
 }
