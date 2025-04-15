@@ -28,7 +28,7 @@ u32 offset_number;
 
 // task 2
 u32 page_table_entry[PAGETABLEENTRYSIZE];
-u64 frame_occupied[4];
+u32 frame_occupied[NOFRAME];
 
 int main(int argc, char *argv[]) {
     char *filename;
@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
         page_table_entry[i] = NOFRAME;
     }
 
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < NOFRAME; ++i) {
         frame_occupied[i] = 0;
     }
 
@@ -112,19 +112,22 @@ void task2() {
     int temp = 4;
     if (page_table_entry[page_number] == NOFRAME) {
         page_fault = 1;
-        for (int i = 0; i < temp; ++i) {
-            for (int j = 0; j < 64; ++j) {
-                if (!(frame_occupied[i] & 1 << j)) {
-                    free_frame_num = i * temp + j;
-                    frame_occupied[i] |= 1 << j;
-                }
-                if (free_frame_num != PAGETABLEENTRYSIZE) {
-                    break;
-                }
-            }
-            if (free_frame_num != PAGETABLEENTRYSIZE) {
+        for (int i = 0; i < NOFRAME; ++i) {
+            if (!frame_occupied[i]) {
+                free_frame_num = i;
+                frame_occupied[i] = 1;
                 break;
             }
+            // for (int j = 0; j < 64; ++j) {
+            //     if (!(frame_occupied[i] & 1 << j)) {
+            //         free_frame_num = i * temp + j;
+            //         frame_occupied[i] |= 1 << j;
+            //     }
+            //     if (free_frame_num != PAGETABLEENTRYSIZE) {
+            //         break;
+            //     }
+            // }
+
         }
         // smallest bit is present/absent bit
         page_table_entry[page_number] = offset_frame_num(free_frame_num);
