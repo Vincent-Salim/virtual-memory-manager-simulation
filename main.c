@@ -10,18 +10,35 @@
 #define COUNTOFFSETBITS     12
 #define FRAMESIZE           1024
 #define NOFRAME             256
+#define PAGETABLEENTRYSIZE  1024
+#define RBIT                0b1
+
 void task1(const char *filename);
 
 typedef uint32_t u32;
 typedef uint64_t u64;
 
+// task 1
 u32 logical_address;
 u32 page_number;
 u32 offset_number;
 
+// task 2
+u32 page_table_entry[PAGETABLEENTRYSIZE];
+u64 free_frame_num[4];
+
 int main(int argc, char *argv[]) {
     char *filename;
     char *task;
+
+    for (int i = 0; i < PAGETABLEENTRYSIZE; ++i) {
+        // smallest bit is 0 when NOFRAME = 2^n for int n >= 1
+        page_table_entry = NOFRAME;
+    }
+
+    for (int i = 0; i < 4; ++i) {
+        free_frame_num[i] = 0;
+    }
 
     for (int i = 0; i < argc; ++i) {
         if (!strcmp(argv[i], "-f")) {
@@ -43,11 +60,11 @@ int main(int argc, char *argv[]) {
     
     while (fscanf(fptr, "%u", &logical_address) == 1) {
         if (strcmp(task, "task1")) {
-            task1(&logical_address);
+            task1(logical_address);
         } 
-        // else if (strcmp(task, "task2")) {
-        //     task2(logical_address);
-        // } 
+        else if (strcmp(task, "task2")) {
+            task2(logical_address);
+        } 
         // else if (strcmp(task, "task3")) {
         //     task3(logical_address);
         // } 
@@ -60,38 +77,51 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-int logical_to_page(u32 *logical_address) {
-    return (*logical_address & PAGENUMBERBITS) >> COUNTOFFSETBITS;
+int logical_to_page() {
+    return (logical_address & PAGENUMBERBITS) >> COUNTOFFSETBITS;
 }
 
-int logical_to_offset(u32 *logical_address) {
-    return (*logical_address & OFFSETBITS);
+int logical_to_offset() {
+    return (logical_address & OFFSETBITS);
 }
 
-void task1(u32 *logical_address) {
-     {
-        page_number = logical_to_page(logical_address);
-        offset_number = logical_to_offset(logical_address);
-    
-        printf("logical-address=%d,page-number=%d,offset=%d\n", logical_address, page_number, offset);    
-    }
+int offset_frame_num(int frame_number) {
+    return frame_number << COUNTOFFSETBITS;
 }
 
-void task2(FILE *fptr) {
+int unoffset_frame_num(int offsetted_frame_number) {
+    return (offsetted_frame_number & PAGENUMBERBITS) >> COUNTOFFSETBITS;
+}
+void task1() {
+    page_number = logical_to_page();
+    offset_number = logical_to_offset();
 
-    int page_table_entry[FRAMESIZE];
-    // 64 * 4 = framesize
-    u64 frames[4];
-    int free_frame;
+    printf("logical-address=%d,page-number=%d,offset=%d\n", logical_address, page_number, offset);    
+}
 
-    if (!page_table_entry[page_number]) {
+void task2() {
+    task1();
+    int free_frame_num = -1;
+    bool page_fault = 0;
+    if (page_table_entry[page_number] == FRAMESIZE) {
+        page_fault = 1;
         for (int i = 0; i < 4; ++i) {
             for (int j = 0; j < 64; ++j) {
                 if (frames[i] & 0 << j) {
-                    free_frame = i * 64 + j;
+                    free_frame_num = i * 64 + j;
+                    frames[i] |= 1 << j;
+                }
+                if (free_frame_num > -1) {
+                    break;
                 }
             }
-        }    
-        page_table_entry[page_number] = free_frame;
+            if (free_frame_num > -1) {
+                break;
+            }
+        }
+        // smallest bit is present/absent bit
+        page_table_entry[page_number] = offset_frame_num(free_frame_num) | 1;
     }
+    frame_number = unoffset_frame_num(page_table_entry[page_number]);
+    printf("page-number=%d,page-fault=%d,frame-number=%d,physical-address=%d\n", page_number, page_fault, frame_number, frame_number * FRAMESIZE + offset_number)
 }
