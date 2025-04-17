@@ -40,6 +40,7 @@ u32 offset_number;
 u32 page_table_entry[PAGETABLEENTRYSIZE];
 u32 frame_occupied[NOFRAME];
 u32 free_frame_idx = 0;
+u32 frame_number;
 int page_fault;
 
 // task 3
@@ -131,12 +132,12 @@ u32 logical_to_offset() {
     return (logical_address & OFFSETBITS);
 }
 
-u32 offset_frame_num(u32 frame_number) {
-    return frame_number << COUNTOFFSETBITS;
+u32 offset_frame_num(u32 frame_num) {
+    return frame_num << COUNTOFFSETBITS;
 }
 
-u32 unoffset_frame_num(u32 offsetted_frame_number) {
-    return (offsetted_frame_number & PAGENUMBERBITS) >> COUNTOFFSETBITS;
+u32 unoffset_frame_num(u32 offsetted_frame_num) {
+    return (offsetted_frame_num & PAGENUMBERBITS) >> COUNTOFFSETBITS;
 }
 
 u32 tlb_to_page(int index) {
@@ -153,14 +154,14 @@ u32 frame_to_tlb() {
 }
 
 int assign_frame() {
-    u32 assign_frame_num = PAGETABLEENTRYSIZE;
+    frame_number = PAGETABLEENTRYSIZE;
     page_fault = 0;
 
     if (page_table_entry[page_number] == NOFRAME) {
         page_fault = 1;
 
         if (free_frame_idx < NOFRAME) {
-            assign_frame_num = free_frame_idx;
+            frame_number = free_frame_idx;
             fifo_array[free_frame_idx] = page_number; 
                 // for task 3
         }
@@ -169,10 +170,10 @@ int assign_frame() {
             return -1;
         }
         // smallest bit is present/absent bit
-        page_table_entry[page_number] = offset_frame_num(assign_frame_num);
+        page_table_entry[page_number] = offset_frame_num(frame_number);
         page_table_entry[page_number] |= 1;
     }
-    return assign_frame_num;
+    return 1;
 }
 
 int evict_page() {
@@ -183,11 +184,11 @@ int evict_page() {
     }
 
     u32 evicted_page = fifo_array[first_in_idx];
-    u32 freed_frame_num = unoffset_frame_num(page_table_entry[evicted_page]);
+    frame_number = unoffset_frame_num(page_table_entry[evicted_page]);
 
-    printf("evicted-page=%u,freed-frame=%u\n", evicted_page, freed_frame_num);
+    printf("evicted-page=%u,freed-frame=%u\n", evicted_page, frame_number);
 
-    page_table_entry[page_number] = offset_frame_num(freed_frame_num);
+    page_table_entry[page_number] = offset_frame_num(frame_number);
     page_table_entry[page_number] |= 1;
 
     // unset frame and fifo_array
@@ -196,7 +197,7 @@ int evict_page() {
 
     first_in_idx = first_in_idx >= PAGETABLEENTRYSIZE ? 0 : first_in_idx + 1;
 
-    return 1;
+    return evicted_page;
 }
 void task1() {
     page_number = logical_to_page();
@@ -208,7 +209,6 @@ void task1() {
 void task2() {
     task1();
     assign_frame();
-    int frame_number = unoffset_frame_num(page_table_entry[page_number]);
     printf("page-number=%u,page-fault=%u,frame-number=%u,physical-address=%u\n", page_number, page_fault, frame_number, (frame_number * FRAMESIZE) + offset_number);
 }
 void task3() {
@@ -216,7 +216,6 @@ void task3() {
     if (!assign_frame()) {
         evict_page();
     }
-    int frame_number = unoffset_frame_num(page_table_entry[page_number]);
     printf("page-number=%u,page-fault=%u,frame-number=%u,physical-address=%u\n", page_number, page_fault, frame_number, (frame_number * FRAMESIZE) + offset_number);
 }
 
@@ -228,7 +227,7 @@ void task4() {
         if (tlb_to_page(i) == page_number) {
             tlb_hit = true;
             tlb_lru[i] = clock;
-            u32 frame_number = tlb_to_frame(tlb_hit);
+            u32 tlb_frame_number = tlb_to_frame(tlb_hit);
             printf("tlb-hit=%u,page-number=%u,frame=%u,physical-address=%u\n", tlb_hit, page_number, frame_number, (frame_number * FRAMESIZE) + logical_to_offset());
             break;
         }
