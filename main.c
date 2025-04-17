@@ -26,7 +26,7 @@ typedef uint64_t u64;
 void task1();
 void task2();
 void task3();
-
+void task4();
 int evict_page();
 
 
@@ -116,9 +116,11 @@ int main(int argc, char *argv[]) {
             task3();
         }
     } 
-    // else if (!strcmp(task, "task4")) {
-    //     task4(logical_address);
-    // } 
+    else if (!strcmp(task, "task4")) {
+        while (fscanf(fptr, "%u", &logical_address) == 1) {
+            task4();
+        }
+    } 
 
     fclose(fptr);
     return 0;
@@ -163,6 +165,7 @@ int assign_frame() {
         if (free_frame_idx < NOFRAME) {
             frame_number = free_frame_idx;
             fifo_array[free_frame_idx] = page_number; 
+            free_frame_idx++;
                 // for task 3
         }
         else {
@@ -213,7 +216,7 @@ void task2() {
 }
 void task3() {
     task1();
-    if (!assign_frame()) {
+    if (assign_frame() < 0) {
         evict_page();
     }
     printf("page-number=%u,page-fault=%u,frame-number=%u,physical-address=%u\n", page_number, page_fault, frame_number, (frame_number * FRAMESIZE) + offset_number);
@@ -221,6 +224,7 @@ void task3() {
 
 
 void task4() {
+    task1();
     bool tlb_hit = false;
     clock++;
     for (int i = 0; i < TLBSIZE; ++i) {
@@ -253,7 +257,7 @@ void task4() {
             for (int i = 0; i < TLBSIZE; ++i) {
                 lru_idx = lru_idx < tlb_lru[i] ? lru_idx : tlb_lru[i];
             }
-            printf("tlb-remove=%u,tlb-add=%u", tlb_to_page(lru_idx), page_number);
+            printf("tlb-remove=%u,tlb-add=%u\n", tlb_to_page(lru_idx), page_number);
             tlb[lru_idx] = frame_to_tlb();
             tlb_lru[lru_idx] = clock;
         }
@@ -265,7 +269,7 @@ void task4() {
                     break;
                 }
             }
-            printf("tlb-remove=%s,tlb-add=%u", NONESTRING, page_number);
+            printf("tlb-remove=%s,tlb-add=%u\n", NONESTRING, page_number);
         }
     }
 }
