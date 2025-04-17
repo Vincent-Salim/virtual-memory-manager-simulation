@@ -154,8 +154,9 @@ void evict_page(u32 *assign_frame_num) {
     printf("evicted-page=%u,freed-frame=%u\n", fifo_array[first_in_idx], unoffset_frame_num(page_table_entry[fifo_array[first_in_idx]]));
     *assign_frame_num = unoffset_frame_num(page_table_entry[fifo_array[first_in_idx]]);
 
-    // unset frame
+    // unset frame and fifo_array
     page_table_entry[fifo_array[first_in_idx]] = NOFRAME;
+    fifo_array[first_in_idx] = page_number;
 
     first_in_idx = first_in_idx >= PAGETABLEENTRYSIZE ? 0 : first_in_idx + 1;
 }
@@ -173,32 +174,49 @@ void task2() {
     printf("page-number=%u,page-fault=%u,frame-number=%u,physical-address=%u\n", page_number, page_fault, frame_number, (frame_number * FRAMESIZE) + offset_number);
 }
 void task3() {
-    
+
 }
 void task4() {
     bool tlb_hit = false;
     bool tlb_full = false;
+    u32 tlb_page_idx = TLBSIZE
     for (int i = 0; i < TLBSIZE; ++i) {
         if (tlb[i] == page_number) {
             tlb_hit = true;
             
         }
     }
-    printf("tlb-hit=%u,page-number=%u,frame=%u,physical-address=%u", tlb_hit, page_number, frame_number, physical_address);
+    int frame_number = unoffset_frame_num(tlb[tlb_page_idx]);
+    printf("tlb-hit=%u,page-number=%u,frame=%u,physical-address=%u\n", tlb_hit, page_number, frame_number, physical_address);
 
-    // tlb_flush
     if (!tlb_hit) {
-        // do task 2/3
-        // make sure to remove entry from tlb if frame is getting removed
-        if (!free_frame) {
-
+        assign_frame();
+        if (evict_page()) {
             for (int i = 0; i < TLBSIZE; ++i) {
-                if (tlb[i] == page_number) {
-                    tlb_hit = false;
+                if (tlb[i] == evict_page) {
+                    tlb_size--;
+                    printf("tlb-flush=%u,tlb-size=%u\n", tlb[i], tlb_size);
+                    tlb[i] = NOFRAME;
+                    break;
+                }
+            }
+        }
+        if (tlb_size == TLBSIZE) {
+        // update tlb according to LRU (least recently used)
+        
+        u32 lru = 0;
+        for (int i = 0; i < TLBSIZE; ++i) {
+            lru = lru > tlb_lru[i] ? lru : tlb_lru[i];
+        }
+        tlb[lru] = frame_number;
+        printf("tlb-remove=%u,tlb-add=<apnumber>", page_number, tlb_add_page)
+        }
+        else {
+            for (int i = 0; i < TLBSIZE; ++i) {
+                if (tlb[i] == NOFRAME) {
+                    tlb[i] = frame_number;
                 }
             }
         }
     }
-
-    // update tlb according to LRU (least recently used)
 }
