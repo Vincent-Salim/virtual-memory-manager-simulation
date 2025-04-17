@@ -233,7 +233,7 @@ void task4() {
         if (tlb_to_page(i) == page_number) {
             tlb_hit = true;
             tlb_lru[i] = clock;
-            frame_number = tlb_to_frame(tlb_hit);
+            frame_number = tlb_to_frame(i);
             printf("tlb-hit=%u,page-number=%u,frame=%u,physical-address=%u\n", tlb_hit, page_number, frame_number, (frame_number * FRAMESIZE) + logical_to_offset());
             break;
         }
