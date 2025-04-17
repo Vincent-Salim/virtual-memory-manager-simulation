@@ -13,7 +13,8 @@
 #define FRAMESIZE           4096
 #define NOFRAME             256
 #define PAGETABLEENTRYSIZE  1024
-#define RBIT                0b1
+#define RBIT                1
+#define TLBSIZE             32 
 
 typedef uint32_t u32;
 typedef uint64_t u64;
@@ -34,6 +35,7 @@ u32 offset_number;
 // least significant bit is present/absent bit, the frame number starts from the 13th least significant bit to account for offset of page and frame size
 u32 page_table_entry[PAGETABLEENTRYSIZE];
 u32 frame_occupied[NOFRAME];
+u32 free_frame_idx = 0;
 int page_fault;
 
 // task 3
@@ -41,12 +43,16 @@ u32 first_in_idx = 0;
 bool free_frame = true;
 u32 fifo_array[NOFRAME];
 
+// task 4
+u32 tlb[TLBSIZE];
+
 int main(int argc, char *argv[]) {
     char *filename = NULL;
     char *task = NULL;
 
+    // initialising arrays
     for (int i = 0; i < PAGETABLEENTRYSIZE; ++i) {
-        // smallest bit is 0 when NOFRAME = 2^n for int n >= 1
+        // smallest bit is the r bit, it is 0 when NOFRAME = 2^n for int n >= 1
         page_table_entry[i] = NOFRAME;
     }
 
@@ -55,10 +61,13 @@ int main(int argc, char *argv[]) {
         fifo_array[i] = NOFRAME;
     }
 
+    for (int i = 0; i < TLBSIZE; ++i) {
+        tlb[i] = NOFRAME;
+    }
+
     for (int i = 0; i < argc; ++i) {
         if (!strcmp(argv[i], "-f")) {
             filename = argv[++i];
-
         }
         else if (!strcmp(argv[i], "-t")) {
             task = argv[++i];
@@ -125,23 +134,14 @@ void assign_frame() {
     if (page_table_entry[page_number] == NOFRAME) {
         page_fault = 1;
 
-        if (free_frame) {
-            for (int i = 0; i < NOFRAME; ++i) {
-                if (!frame_occupied[i]) {
-                    assign_frame_num = i;
-                    frame_occupied[i] = 1;
-                    fifo_array[i] = page_number; 
-                    break;
-                }
+        if (free_frame_idx < NOFRAME) {
+            assign_frame_num = free_frame_idx;
+            fifo_array[free_frame_idx] = page_number; 
                 // for task 3
-                if (i == NOFRAME - 1) {
-                    free_frame = false;
-                    evict_page(&assign_frame_num);
-                }
-            }
         }
         else {
             // this bit is just for task 3
+            free_frame = false;
             evict_page(&assign_frame_num);
         }
         // smallest bit is present/absent bit
@@ -153,6 +153,8 @@ void assign_frame() {
 void evict_page(u32 *assign_frame_num) {
     printf("evicted-page=%u,freed-frame=%u\n", fifo_array[first_in_idx], unoffset_frame_num(page_table_entry[fifo_array[first_in_idx]]));
     *assign_frame_num = unoffset_frame_num(page_table_entry[fifo_array[first_in_idx]]);
+
+    // unset frame
     page_table_entry[fifo_array[first_in_idx]] = NOFRAME;
 
     first_in_idx = first_in_idx >= PAGETABLEENTRYSIZE ? 0 : first_in_idx + 1;
@@ -170,10 +172,33 @@ void task2() {
     int frame_number = unoffset_frame_num(page_table_entry[page_number]);
     printf("page-number=%u,page-fault=%u,frame-number=%u,physical-address=%u\n", page_number, page_fault, frame_number, (frame_number * FRAMESIZE) + offset_number);
 }
-
 void task3() {
-    task1();
-    assign_frame();
-    int frame_number = unoffset_frame_num(page_table_entry[page_number]);
-    printf("page-number=%u,page-fault=%u,frame-number=%u,physical-address=%u\n", page_number, page_fault, frame_number, (frame_number * FRAMESIZE) + offset_number);
+    
+}
+void task4() {
+    bool tlb_hit = false;
+    bool tlb_full = false;
+    for (int i = 0; i < TLBSIZE; ++i) {
+        if (tlb[i] == page_number) {
+            tlb_hit = true;
+            
+        }
+    }
+    printf("tlb-hit=%u,page-number=%u,frame=%u,physical-address=%u", tlb_hit, page_number, frame_number, physical_address);
+
+    // tlb_flush
+    if (!tlb_hit) {
+        // do task 2/3
+        // make sure to remove entry from tlb if frame is getting removed
+        if (!free_frame) {
+
+            for (int i = 0; i < TLBSIZE; ++i) {
+                if (tlb[i] == page_number) {
+                    tlb_hit = false;
+                }
+            }
+        }
+    }
+
+    // update tlb according to LRU (least recently used)
 }
