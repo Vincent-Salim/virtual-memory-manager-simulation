@@ -14,11 +14,14 @@
 #define PAGETABLEENTRYSIZE  1024
 #define RBIT                0b1
 
-void task1();
-void task2();
-
 typedef uint32_t u32;
 typedef uint64_t u64;
+
+void task1();
+void task2();
+void task3();
+
+void evict_page(int replace_true, u32 assign_frame_num);
 
 
 // task 1
@@ -30,7 +33,7 @@ u32 offset_number;
 // least significant bit is present/absent bit, the frame number starts from the 13th least significant bit to account for offset of page and frame size
 u32 page_table_entry[PAGETABLEENTRYSIZE];
 u32 frame_occupied[NOFRAME];
-
+int page_fault;
 // task 3
 u32 first_in_idx = 0;
 u32 no_free_frame = 0;
@@ -107,7 +110,7 @@ u32 unoffset_frame_num(int offsetted_frame_number) {
 
 void assign_frame(int replace_true) {
     u32 assign_frame_num = PAGETABLEENTRYSIZE;
-    int page_fault = 0;
+    page_fault = 0;
     if (page_table_entry[page_number] == NOFRAME) {
         page_fault = 1;
 
@@ -121,27 +124,27 @@ void assign_frame(int replace_true) {
                 // for task 3
                 if (i == NOFRAME - 1) {
                     no_free_frame = 1;
-                    evict_page();
+                    evict_page(replace_true, assign_frame_num);
                 }
             }
         }
         else {
             // this bit is just for task 3
-            evict_page();
+            evict_page(replace_true, assign_frame_num);
         }
         // smallest bit is present/absent bit
         page_table_entry[page_number] = offset_frame_num(assign_frame_num);
         page_table_entry[page_number] |= 1;
     }
 }
-
-void evict_page() {
+// replace_true just for debugging
+void evict_page(int replace_true, u32 assign_frame_num) {
     if (!replace_true) {
         fprintf(stderr, "REPLACE == FALSE but FRAME IS FULL");
         exit(1);
     }
     assign_frame_num = first_in_idx;
-    printf("evicted-page=%u,freed-frame=%u", first_in_idx, unoffset_frame_num(page_table_entry[first_in_idx]))
+    printf("evicted-page=%u,freed-frame=%u", first_in_idx, unoffset_frame_num(page_table_entry[first_in_idx]));
 
     first_in_idx = first_in_idx >= PAGETABLEENTRYSIZE ? 0 : first_in_idx++;
 }
@@ -154,7 +157,7 @@ void task1() {
 
 void task2() {
     task1();
-    replace_true = 0;
+    int replace_true = 0;
     assign_frame(replace_true);
     int frame_number = unoffset_frame_num(page_table_entry[page_number]);
     printf("page-number=%u,page-fault=%u,frame-number=%u,physical-address=%u\n", page_number, page_fault, frame_number, (frame_number * FRAMESIZE) + offset_number);
@@ -162,7 +165,7 @@ void task2() {
 
 void task3() {
     task1();
-    replace_true = 1;
+    int replace_true = 1;
     assign_frame(replace_true);
     int frame_number = unoffset_frame_num(page_table_entry[page_number]);
     printf("page-number=%u,page-fault=%u,frame-number=%u,physical-address=%u\n", page_number, page_fault, frame_number, (frame_number * FRAMESIZE) + offset_number);
