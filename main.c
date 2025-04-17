@@ -15,7 +15,11 @@
 #define PAGETABLEENTRYSIZE  1024
 #define RBIT                1
 #define TLBSIZE             32 
-
+#define TLBFRAMENUMBERBITS  0b00000000001111111111000000000000
+#define TLBPAGENUMBERBITS   0b00000000000000000000111111111100
+#define TLBFRAMEOFFSETBITS  12
+#define TLBPAGEOFFSETBITS   2
+#define NONESTRING          "none" 
 typedef uint32_t u32;
 typedef uint64_t u64;
 
@@ -23,7 +27,7 @@ void task1();
 void task2();
 void task3();
 
-void evict_page(u32 *assign_frame_num);
+int evict_page();
 
 
 // task 1
@@ -44,7 +48,14 @@ bool free_frame = true;
 u32 fifo_array[NOFRAME];
 
 // task 4
+// TLB stores 0bXXXXXXXXXXAAAAAAAAAABBBBBBBBBBXR where A represents frame bit B page bit and R is r bit
 u32 tlb[TLBSIZE];
+u32 tlb_lru[TLBSIZE];
+// each bit represents wheter the tlb spot for that has been used or not 32 bits for tlb size
+u32 tlb_entry_used = 0;
+u32 tlb_size = 0;
+u32 clock = 0;
+
 
 int main(int argc, char *argv[]) {
     char *filename = NULL;
@@ -63,6 +74,7 @@ int main(int argc, char *argv[]) {
 
     for (int i = 0; i < TLBSIZE; ++i) {
         tlb[i] = NOFRAME;
+        tlb_lru[i] = 0;
     }
 
     for (int i = 0; i < argc; ++i) {
@@ -127,7 +139,20 @@ u32 unoffset_frame_num(u32 offsetted_frame_number) {
     return (offsetted_frame_number & PAGENUMBERBITS) >> COUNTOFFSETBITS;
 }
 
-void assign_frame() {
+u32 tlb_to_page(int index) {
+    return (tlb[index] & TLBPAGENUMBERBITS) >> TLBPAGEOFFSETBITS;
+}
+
+u32 tlb_to_frame(int index) {
+    return (tlb[index] & TLBFRAMENUMBERBITS) >> TLBFRAMEOFFSETBITS;
+}
+
+u32 frame_to_tlb() {
+    tlb_offset_page_num = page_number << TLBPAGEOFFSETBITS;
+    return (offset_frame_num(frame_number) + tlb_offset_page_num + RBIT);
+}
+
+int assign_frame() {
     u32 assign_frame_num = PAGETABLEENTRYSIZE;
     page_fault = 0;
 
@@ -141,24 +166,37 @@ void assign_frame() {
         }
         else {
             // this bit is just for task 3
-            free_frame = false;
-            evict_page(&assign_frame_num);
+            return -1;
         }
         // smallest bit is present/absent bit
         page_table_entry[page_number] = offset_frame_num(assign_frame_num);
         page_table_entry[page_number] |= 1;
     }
+    return assign_frame_num;
 }
-// replace_true just for debugging
-void evict_page(u32 *assign_frame_num) {
-    printf("evicted-page=%u,freed-frame=%u\n", fifo_array[first_in_idx], unoffset_frame_num(page_table_entry[fifo_array[first_in_idx]]));
-    *assign_frame_num = unoffset_frame_num(page_table_entry[fifo_array[first_in_idx]]);
+
+int evict_page() {
+
+    // for task 4 to allow the correct print sequence to occur
+    if (free_frame_idx < NOFRAME) {
+        return -1;
+    }
+
+    u32 evicted_page = fifo_array[first_in_idx];
+    u32 freed_frame_num = unoffset_frame_num(page_table_entry[evicted_page]);
+
+    printf("evicted-page=%u,freed-frame=%u\n", evicted_page, freed_frame_num);
+
+    page_table_entry[page_number] = offset_frame_num(freed_frame_num);
+    page_table_entry[page_number] |= 1;
 
     // unset frame and fifo_array
     page_table_entry[fifo_array[first_in_idx]] = NOFRAME;
     fifo_array[first_in_idx] = page_number;
 
     first_in_idx = first_in_idx >= PAGETABLEENTRYSIZE ? 0 : first_in_idx + 1;
+
+    return 1;
 }
 void task1() {
     page_number = logical_to_page();
@@ -174,49 +212,60 @@ void task2() {
     printf("page-number=%u,page-fault=%u,frame-number=%u,physical-address=%u\n", page_number, page_fault, frame_number, (frame_number * FRAMESIZE) + offset_number);
 }
 void task3() {
-
+    task1();
+    if (!assign_frame()) {
+        evict_page();
+    }
+    int frame_number = unoffset_frame_num(page_table_entry[page_number]);
+    printf("page-number=%u,page-fault=%u,frame-number=%u,physical-address=%u\n", page_number, page_fault, frame_number, (frame_number * FRAMESIZE) + offset_number);
 }
+
+
 void task4() {
     bool tlb_hit = false;
-    bool tlb_full = false;
-    u32 tlb_page_idx = TLBSIZE
+    clock++;
     for (int i = 0; i < TLBSIZE; ++i) {
-        if (tlb[i] == page_number) {
+        if (tlb_to_page(i) == page_number) {
             tlb_hit = true;
-            
+            tlb_lru[i] = clock;
+            u32 frame_number = tlb_to_frame(tlb_hit);
+            printf("tlb-hit=%u,page-number=%u,frame=%u,physical-address=%u\n", tlb_hit, page_number, frame_number, (frame_number * FRAMESIZE) + logical_to_offset());
+            break;
         }
     }
-    int frame_number = unoffset_frame_num(tlb[tlb_page_idx]);
-    printf("tlb-hit=%u,page-number=%u,frame=%u,physical-address=%u\n", tlb_hit, page_number, frame_number, physical_address);
-
     if (!tlb_hit) {
-        assign_frame();
-        if (evict_page()) {
+        printf("tlb-hit=%u,page-number=%u,frame=%s,physical-address=%s\n", tlb_hit, page_number, NONESTRING, NONESTRING);
+        u32 evicted_page;
+        if ((evicted_page = evict_page()) < 0) {
             for (int i = 0; i < TLBSIZE; ++i) {
-                if (tlb[i] == evict_page) {
+                if (tlb_to_page(i) == evicted_page) {
                     tlb_size--;
-                    printf("tlb-flush=%u,tlb-size=%u\n", tlb[i], tlb_size);
+                    printf("tlb-flush=%u,tlb-size=%u\n", tlb_to_page(i), tlb_size);
                     tlb[i] = NOFRAME;
                     break;
                 }
             }
         }
-        if (tlb_size == TLBSIZE) {
+
         // update tlb according to LRU (least recently used)
-        
-        u32 lru = 0;
-        for (int i = 0; i < TLBSIZE; ++i) {
-            lru = lru > tlb_lru[i] ? lru : tlb_lru[i];
-        }
-        tlb[lru] = frame_number;
-        printf("tlb-remove=%u,tlb-add=<apnumber>", page_number, tlb_add_page)
+        if (tlb_size == TLBSIZE) {
+            u32 lru_idx = 0;
+            for (int i = 0; i < TLBSIZE; ++i) {
+                lru_idx = lru_idx > tlb_lru[i] ? lru_idx : tlb_lru[i];
+            }
+            tlb[lru_idx] = frame_to_tlb();
+            tlb_lru[lru_idx] = clock;
+            printf("tlb-remove=%u,tlb-add=<apnumber>", page_number, tlb_add_page)
         }
         else {
             for (int i = 0; i < TLBSIZE; ++i) {
                 if (tlb[i] == NOFRAME) {
                     tlb[i] = frame_number;
+                    tlb_lru[i] = clock;
+                    break;
                 }
             }
+            printf("tlb-remove=%s,tlb-add=<apnumber>", NONESTRING, tlb_add_page)
         }
     }
 }
