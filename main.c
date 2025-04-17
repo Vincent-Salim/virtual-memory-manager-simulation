@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #define MASKEDBITS          0b11111111110000000000000000000000
 #define PAGENUMBERBITS      0b00000000001111111111000000000000
@@ -21,7 +22,7 @@ void task1();
 void task2();
 void task3();
 
-void evict_page(u32 assign_frame_num);
+void evict_page(u32 *assign_frame_num);
 
 
 // task 1
@@ -34,10 +35,12 @@ u32 offset_number;
 u32 page_table_entry[PAGETABLEENTRYSIZE];
 u32 frame_occupied[NOFRAME];
 int page_fault;
+
 // task 3
 u32 first_in_idx = 0;
-u32 no_free_frame = 0;
+bool free_frame = true;
 u32 fifo_array[NOFRAME];
+
 int main(int argc, char *argv[]) {
     char *filename = NULL;
     char *task = NULL;
@@ -107,21 +110,22 @@ u32 logical_to_offset() {
     return (logical_address & OFFSETBITS);
 }
 
-u32 offset_frame_num(int frame_number) {
+u32 offset_frame_num(u32 frame_number) {
     return frame_number << COUNTOFFSETBITS;
 }
 
-u32 unoffset_frame_num(int offsetted_frame_number) {
+u32 unoffset_frame_num(u32 offsetted_frame_number) {
     return (offsetted_frame_number & PAGENUMBERBITS) >> COUNTOFFSETBITS;
 }
 
 void assign_frame() {
     u32 assign_frame_num = PAGETABLEENTRYSIZE;
     page_fault = 0;
+
     if (page_table_entry[page_number] == NOFRAME) {
         page_fault = 1;
 
-        if (!no_free_frame) {
+        if (free_frame) {
             for (int i = 0; i < NOFRAME; ++i) {
                 if (!frame_occupied[i]) {
                     assign_frame_num = i;
@@ -131,14 +135,14 @@ void assign_frame() {
                 }
                 // for task 3
                 if (i == NOFRAME - 1) {
-                    no_free_frame = 1;
-                    evict_page(assign_frame_num);
+                    free_frame = false;
+                    evict_page(&assign_frame_num);
                 }
             }
         }
         else {
             // this bit is just for task 3
-            evict_page(assign_frame_num);
+            evict_page(&assign_frame_num);
         }
         // smallest bit is present/absent bit
         page_table_entry[page_number] = offset_frame_num(assign_frame_num);
@@ -146,11 +150,12 @@ void assign_frame() {
     }
 }
 // replace_true just for debugging
-void evict_page(u32 assign_frame_num) {
-    assign_frame_num = first_in_idx;
-    printf("evicted-page=%u,freed-frame=%u\n", fifo[first_in_idx], unoffset_frame_num(page_table_entry[first_in_idx]));
+void evict_page(u32 *assign_frame_num) {
+    printf("evicted-page=%u,freed-frame=%u\n", fifo_array[first_in_idx], unoffset_frame_num(page_table_entry[fifo_array[first_in_idx]]));
+    *assign_frame_num = unoffset_frame_num(page_table_entry[fifo_array[first_in_idx]]);
+    page_table_entry[fifo_array[first_in_idx]] = NOFRAME;
 
-    first_in_idx = first_in_idx >= PAGETABLEENTRYSIZE ? 0 : ++first_in_idx;
+    first_in_idx = first_in_idx >= PAGETABLEENTRYSIZE ? 0 : first_in_idx + 1;
 }
 void task1() {
     page_number = logical_to_page();
