@@ -149,7 +149,7 @@ u32 tlb_to_frame(int index) {
 }
 
 u32 frame_to_tlb() {
-    tlb_offset_page_num = page_number << TLBPAGEOFFSETBITS;
+    u32 tlb_offset_page_num = page_number << TLBPAGEOFFSETBITS;
     return (offset_frame_num(frame_number) + tlb_offset_page_num + RBIT);
 }
 
@@ -227,7 +227,7 @@ void task4() {
         if (tlb_to_page(i) == page_number) {
             tlb_hit = true;
             tlb_lru[i] = clock;
-            u32 tlb_frame_number = tlb_to_frame(tlb_hit);
+            frame_number = tlb_to_frame(tlb_hit);
             printf("tlb-hit=%u,page-number=%u,frame=%u,physical-address=%u\n", tlb_hit, page_number, frame_number, (frame_number * FRAMESIZE) + logical_to_offset());
             break;
         }
@@ -249,12 +249,13 @@ void task4() {
         // update tlb according to LRU (least recently used)
         if (tlb_size == TLBSIZE) {
             u32 lru_idx = 0;
+            // find least recently used clock always increments and is assigned on creation and on use
             for (int i = 0; i < TLBSIZE; ++i) {
-                lru_idx = lru_idx > tlb_lru[i] ? lru_idx : tlb_lru[i];
+                lru_idx = lru_idx < tlb_lru[i] ? lru_idx : tlb_lru[i];
             }
+            printf("tlb-remove=%u,tlb-add=%u", tlb_to_page(lru_idx), page_number);
             tlb[lru_idx] = frame_to_tlb();
             tlb_lru[lru_idx] = clock;
-            printf("tlb-remove=%u,tlb-add=<apnumber>", page_number, tlb_add_page)
         }
         else {
             for (int i = 0; i < TLBSIZE; ++i) {
@@ -264,7 +265,7 @@ void task4() {
                     break;
                 }
             }
-            printf("tlb-remove=%s,tlb-add=<apnumber>", NONESTRING, tlb_add_page)
+            printf("tlb-remove=%s,tlb-add=%u", NONESTRING, page_number);
         }
     }
 }
