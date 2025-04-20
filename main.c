@@ -88,12 +88,8 @@ int main(int argc, char *argv[]) {
     }
 
     if (!task || !filename) {
-        fprintf(stderr, "no task or no fptr\n");
         exit(1);
     }
-
-    fprintf(stderr,"filename: %s\n", filename);
-    fprintf(stderr, "task: %s\n", task);
     
     FILE *fptr = fopen(filename, "r");
     if (fptr == NULL) {
@@ -243,7 +239,6 @@ void task4() {
         u32 evicted_page;
         if (assign_frame() < 0) {
             if ((evicted_page = evict_page()) > 0) {
-                fprintf(stderr, "evicting %u\n", evicted_page);
                 for (int i = 0; i < TLBSIZE; ++i) {
                     if (tlb_to_page(i) == evicted_page) {
                         tlb_size--;
