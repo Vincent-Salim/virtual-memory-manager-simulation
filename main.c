@@ -107,26 +107,25 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
+    void (*task_func)() = NULL;
+    
     if (!strcmp(task, "task1")) {
-        while (fscanf(fptr, "%u", &logical_address) == 1) {
-            task1();
-        }
+        task_func = task1;
     } 
     else if (!strcmp(task, "task2")) {
-        while (fscanf(fptr, "%u", &logical_address) == 1) {
-            task2();
-        }
+        task_func = task2;
     } 
     else if (!strcmp(task, "task3")) {
-        while (fscanf(fptr, "%u", &logical_address) == 1) {
-            task3();
-        }
+        task_func = task3;
     } 
     else if (!strcmp(task, "task4")) {
-        while (fscanf(fptr, "%u", &logical_address) == 1) {
-            task4();
-        }
+        task_func = task4;
     } 
+    if (task_func != NULL) {
+        while (fscanf(fptr, "%u", &logical_address) == 1) {
+            task_func();
+        }
+    }
 
     fclose(fptr);
     return 0;
