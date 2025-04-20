@@ -23,11 +23,21 @@
 typedef uint32_t u32;
 typedef uint64_t u64;
 
+
+u32 logical_to_page();
+u32 logical_to_offset();
+u32 offset_frame_num(u32 frame_num);
+u32 unoffset_frame_num(u32 offsetted_frame_num);
+u32 tlb_to_page(int index);
+u32 tlb_to_frame(int index);
+u32 frame_to_tlb();
+int assign_frame();
+int evict_page();
+
 void task1();
 void task2();
 void task3();
 void task4();
-int evict_page();
 
 
 // task 1
