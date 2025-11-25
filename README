@@ -1,5 +1,9 @@
 COMP30023 2025 - Project 1
 
+This project implements a program that simulates a Virtual Memory Manager.
+
+The memory manager relies on the use of a Translation Lookaside Buffer (TLB) and a page table to translate logical addresses to physical addresses, and it manages the allocation of logical pages to physical frames. For simplicity, and to avoid implementing logic related to process management (e.g., process scheduling), memory management is assumed to be done for a single process that runs for the duration of the simulation.
+
 ./translate -f cases/task1/spec.txt -t task1 | diff - cases/task1/spec.out
 ./translate -f cases/task1/spec-mask.txt -t task1 | diff - cases/task1/spec-mask.out
 ./translate -f cases/task1/bound.txt -t task1 | diff - cases/task1/bound.out
